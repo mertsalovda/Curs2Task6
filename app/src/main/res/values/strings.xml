@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Curs2Task6</string>
+    <string name="txt_uri">Ссылка</string>
+    <string name="text_download">Download</string>
+    <string name="text_uri_image">Uri Image</string>
+    <string name="text_set_image">Set Image</string>
+</resources>
