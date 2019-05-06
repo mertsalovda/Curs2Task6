@@ -10,10 +10,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
-import android.provider.OpenableColumns;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.NotificationCompat;
@@ -41,13 +41,13 @@ public class MainActivity extends AppCompatActivity {
 //
 // ++3) При нажатии на кнопку 1 должна происходить загрузка файла, url которого указан в EditText.
 //
-// 4) Сохранение файла должно производиться в папку Downloads устройства.
+// ++4) Сохранение файла должно производиться в папку Downloads устройства.
 // ++5) Приложение должно качать только изображения.
 //    Если ссылка не оканчивается на .jpeg/.png/.bmp или ее вообще нет,
 //    то при нажатии на кнопку 1 выводить тост с текстом ошибки
 //    (на усмотрение исполнителя).
 //
-// 6) После окончания загрузки, кнопка 2 становится активной (setEnabled(true))
+// ++6) После окончания загрузки, кнопка 2 становится активной (setEnabled(true))
 //    При нажатии на эту кнопку, скачанное изображение загружается в ImageView.
 //
 
@@ -59,6 +59,8 @@ public class MainActivity extends AppCompatActivity {
     private Uri downloadUri;
     private long refid;
     private List<Long> listRefid = new ArrayList<>();
+    private String lastDawnloadFileName;
+    private long referenceId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,7 +87,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 //Поменять картинку в ivImage
-
+                String path = "/sdcard/Download/" + lastDawnloadFileName;
+                File imageFile = new File(path);
+                if (imageFile.exists()) {
+                    ivImage.setImageDrawable(Drawable.createFromPath(path));
+                } else {
+                    showMessage("Ошибка: данного файла не существует!");
+                }
             }
         });
         //запросить разрешение записи во внешнюю память, если sdk_int >= 23
@@ -151,11 +159,13 @@ public class MainActivity extends AppCompatActivity {
 
     //Закгрузка файла
     private void downloadToFile(String textURI) {
+        btnSetImage.setEnabled(false);
+
         listRefid.clear();
 
-        showMessage("Загрузка: " + textURI);
+        showMessage("Загрузка: " + "/sdcard/Download/" + getFileName(textURI));
         downloadUri = Uri.parse(textURI);
-        String fileFormat = getFormatFile(textURI);
+        String fileName = getFileName(textURI);
 
         DownloadManager.Request request = new DownloadManager.Request(downloadUri);
         request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI
@@ -166,18 +176,18 @@ public class MainActivity extends AppCompatActivity {
         request.setVisibleInDownloadsUi(true);
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
         request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,
-                "/" + "Image" + fileFormat);
+                "/" + fileName);
 
         refid = downloadManager.enqueue(request);
         listRefid.add(refid);
     }
 
-    //Получить формат файла
-    private String getFormatFile(String textURI) {
-        String format;
-        int lastIndexPoint = textURI.lastIndexOf(".");
-        format = textURI.substring(lastIndexPoint, textURI.length());
-        return format;
+    //Получить имя файла ссылке на его
+    private String getFileName(String textURI) {
+        String fileName;
+        int lastIndexPoint = textURI.lastIndexOf("/");
+        fileName = textURI.substring(lastIndexPoint + 1, textURI.length());
+        return fileName;
     }
 
     @Override
@@ -238,8 +248,7 @@ public class MainActivity extends AppCompatActivity {
     BroadcastReceiver onComplete = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            long referenceId
-                    = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+            referenceId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
 
             listRefid.remove(referenceId);
 
@@ -254,10 +263,30 @@ public class MainActivity extends AppCompatActivity {
                         = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                 notificationManager.notify(455, builder.build());
 
-                btnSetImage.setEnabled(true);
+                //Если скачивание не удалось, кнопка не станет активной
+                if (!isDownloadSuccessful()) {
+                    btnSetImage.setEnabled(true);
+                    lastDawnloadFileName = getFileName(etURI.getText().toString());
+                }
+
             }
         }
     };
+
+    //Проверка на успешное скачивание
+    private boolean isDownloadSuccessful() {
+        Cursor cursor = downloadManager.query(new DownloadManager.Query()
+                .setFilterById(referenceId));
+        cursor.moveToFirst();
+
+        int status = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS));
+
+        if (status != DownloadManager.STATUS_SUCCESSFUL) {
+            return true;
+        }
+
+        return false;
+    }
 
     @Override
     protected void onDestroy() {
