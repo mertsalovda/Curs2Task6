@@ -1,4 +1,4 @@
-package com.example.curs2task6;
+package com.mertsalovda.curs2task6;
 
 import org.junit.Test;
 

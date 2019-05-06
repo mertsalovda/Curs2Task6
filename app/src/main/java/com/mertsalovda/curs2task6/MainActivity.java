@@ -1,4 +1,4 @@
-package com.example.curs2task6;
+package com.mertsalovda.curs2task6;
 
 import android.Manifest;
 import android.app.DownloadManager;
@@ -34,22 +34,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
-    public static final int WRITE_PERMISSION_RC = 100;
 
-// ++2) При запуске на Android 6+ - происходит запрос Runtime Permission на запись файлов.
-// (WRITE_EXTERNAL_STORAGE)
-//
-// ++3) При нажатии на кнопку 1 должна происходить загрузка файла, url которого указан в EditText.
-//
-// ++4) Сохранение файла должно производиться в папку Downloads устройства.
-// ++5) Приложение должно качать только изображения.
-//    Если ссылка не оканчивается на .jpeg/.png/.bmp или ее вообще нет,
-//    то при нажатии на кнопку 1 выводить тост с текстом ошибки
-//    (на усмотрение исполнителя).
-//
-// ++6) После окончания загрузки, кнопка 2 становится активной (setEnabled(true))
-//    При нажатии на эту кнопку, скачанное изображение загружается в ImageView.
-//
+    private static final int WRITE_PERMISSION_RC = 100;
 
     private EditText etURI;
     private Button btnDownload;
@@ -182,7 +168,7 @@ public class MainActivity extends AppCompatActivity {
         listRefid.add(refid);
     }
 
-    //Получить имя файла ссылке на его
+    //Получить имя файла по ссылке на него
     private String getFileName(String textURI) {
         String fileName;
         int lastIndexPoint = textURI.lastIndexOf("/");
@@ -221,12 +207,12 @@ public class MainActivity extends AppCompatActivity {
     private boolean isValidText(String text) {
         //Если текст пустой
         if (TextUtils.isEmpty(text)) {
-            showMessage("Пустая ссылка на файл");
+            showMessage("Ошибка: Пустая ссылка");
             return false;
         }
         //Если не формат URL
         if (!URLUtil.isValidUrl(text)) {
-            showMessage("Текст не является ссылкой");
+            showMessage("Ошибка: Текст не является ссылкой");
             return false;
         }
         //Если не содержит на конце формат изображения
@@ -234,7 +220,7 @@ public class MainActivity extends AppCompatActivity {
                 && !text.matches("(.*).png")
                 && !text.matches("(.*).jpg") //тоже самое, что и .jpeg
                 && !text.matches("(.*).bmp")) {
-            showMessage("Ссылка должна указывать на изображение и оканчиваться " +
+            showMessage("Ошибка: Неверный формат ссылки! Ссылка должна указывать на изображение и оканчиваться " +
                     "на .jpeg/.png/.bmp");
             return false;
         }
