@@ -12,6 +12,7 @@
         android:id="@+id/et_uriImage"
         android:hint="@string/text_uri_image"
         android:layout_width="match_parent"
+        android:selectAllOnFocus="true"
         android:layout_height="wrap_content" />
 
     <Button

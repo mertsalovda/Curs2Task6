@@ -1,11 +1,22 @@
 package com.example.curs2task6;
 
 import android.Manifest;
+import android.app.DownloadManager;
+import android.app.NotificationManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
+import android.provider.OpenableColumns;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -18,13 +29,17 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
 public class MainActivity extends AppCompatActivity {
     public static final int WRITE_PERMISSION_RC = 100;
 
 // ++2) При запуске на Android 6+ - происходит запрос Runtime Permission на запись файлов.
 // (WRITE_EXTERNAL_STORAGE)
 //
-// 3) При нажатии на кнопку 1 должна происходить загрузка файла, url которого указан в EditText.
+// ++3) При нажатии на кнопку 1 должна происходить загрузка файла, url которого указан в EditText.
 //
 // 4) Сохранение файла должно производиться в папку Downloads устройства.
 // ++5) Приложение должно качать только изображения.
@@ -36,10 +51,14 @@ public class MainActivity extends AppCompatActivity {
 //    При нажатии на эту кнопку, скачанное изображение загружается в ImageView.
 //
 
-    EditText etURI;
-    Button btnDownload;
-    ImageView ivImage;
-    Button btnSetImage;
+    private EditText etURI;
+    private Button btnDownload;
+    private ImageView ivImage;
+    private Button btnSetImage;
+    private DownloadManager downloadManager;
+    private Uri downloadUri;
+    private long refid;
+    private List<Long> listRefid = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,6 +69,8 @@ public class MainActivity extends AppCompatActivity {
         btnDownload = findViewById(R.id.btn_download);
         ivImage = findViewById(R.id.iv_image);
         btnSetImage = findViewById(R.id.btn_set_image);
+
+        downloadManager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
 
         btnDownload.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -76,6 +97,13 @@ public class MainActivity extends AppCompatActivity {
                     WRITE_PERMISSION_RC);
         }
 
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerReceiver(onComplete, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+        registerReceiver(onComplete, new IntentFilter(DownloadManager.ACTION_NOTIFICATION_CLICKED));
     }
 
     //Загрузка файла
@@ -123,7 +151,33 @@ public class MainActivity extends AppCompatActivity {
 
     //Закгрузка файла
     private void downloadToFile(String textURI) {
+        listRefid.clear();
+
         showMessage("Загрузка: " + textURI);
+        downloadUri = Uri.parse(textURI);
+        String fileFormat = getFormatFile(textURI);
+
+        DownloadManager.Request request = new DownloadManager.Request(downloadUri);
+        request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI
+                | DownloadManager.Request.NETWORK_MOBILE);
+        request.setAllowedOverRoaming(false);
+        request.setTitle("Скачивание файла");
+        request.setDescription("Description");
+        request.setVisibleInDownloadsUi(true);
+        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,
+                "/" + "Image" + fileFormat);
+
+        refid = downloadManager.enqueue(request);
+        listRefid.add(refid);
+    }
+
+    //Получить формат файла
+    private String getFormatFile(String textURI) {
+        String format;
+        int lastIndexPoint = textURI.lastIndexOf(".");
+        format = textURI.substring(lastIndexPoint, textURI.length());
+        return format;
     }
 
     @Override
@@ -168,6 +222,7 @@ public class MainActivity extends AppCompatActivity {
         //Если не содержит на конце формат изображения
         if (!text.matches("(.*).jpeg")
                 && !text.matches("(.*).png")
+                && !text.matches("(.*).jpg") //тоже самое, что и .jpeg
                 && !text.matches("(.*).bmp")) {
             showMessage("Ссылка должна указывать на изображение и оканчиваться " +
                     "на .jpeg/.png/.bmp");
@@ -178,5 +233,35 @@ public class MainActivity extends AppCompatActivity {
 
     private void showMessage(String textMessage) {
         Toast.makeText(this, textMessage, Toast.LENGTH_LONG).show();
+    }
+
+    BroadcastReceiver onComplete = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            long referenceId
+                    = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+
+            listRefid.remove(referenceId);
+
+            if (listRefid.isEmpty()) {
+                NotificationCompat.Builder builder
+                        = new NotificationCompat.Builder(MainActivity.this)
+                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setContentTitle("Загрузка изображения")
+                        .setContentText("Загрузка завершена");
+
+                NotificationManager notificationManager
+                        = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                notificationManager.notify(455, builder.build());
+
+                btnSetImage.setEnabled(true);
+            }
+        }
+    };
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(onComplete);
     }
 }
